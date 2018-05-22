@@ -133,11 +133,25 @@ app.post('/english/authentication', (req, res) => {
 
 app.post('/english/transactions', (req, res) => {
   const twiml = new voiceResponse();
-  twiml.say('You can now carry out your transactions');
+  twiml.say('Press 3 for account balance, or 4 to make funds transfer')
   // Render the response as XML in reply to the webhook request
   res.type('text/xml');
   res.send(twiml.toString());
 });
+
+app.post('/english/transactions', (req, res) => {
+  const twiml = new voiceResponse();
+
+const response = new voiceResponse();
+const gather = response.gather({
+  input: 'speech dtmf',
+  timeout: 7,
+  numDigits: 1  ,
+  action:'/gather',
+
+});
+gather.say('Your account balance is, five thousand, two hundred and fifty naira')
+console.log(response.toString());
 
 app.listen(1337, '127.0.0.1');
 
