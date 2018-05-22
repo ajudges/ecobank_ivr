@@ -9,7 +9,8 @@ const { Schema } = mongoose;
 const userSchema = new Schema ({
   phoneNumber : { type : String, unique : true },
   accountNumber : String,
-  profilePin : Number
+  profilePin : Number,
+  wallet : Number
 });
 
 mongoose.model('users', userSchema);
