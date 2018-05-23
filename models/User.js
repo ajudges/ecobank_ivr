@@ -10,7 +10,9 @@ const userSchema = new Schema ({
   phoneNumber : { type : String, unique : true },
   accountNumber : String,
   profilePin : Number,
-  wallet : Number
+  wallet : Number,
+  balance : Number,
+  accountName : String
 });
 
 mongoose.model('users', userSchema);

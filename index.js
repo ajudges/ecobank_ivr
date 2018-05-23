@@ -38,7 +38,7 @@ app.post('/', (req,res) => {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended : false }));
 
-
+/*
 app.post('/', (req,res) => {
   const twiml = new voiceResponse();
 
@@ -146,9 +146,9 @@ app.post('/english/transactions', (req, res) => {
 
 });
 
-
+*/
 // check to  see if there is a wallet
-app.post('/wallet', (req,res) => {
+app.post('/', (req,res) => {
 // Use the twilio node js to build an xml response
   const twiml = new voiceResponse();
     User.findOne({phoneNumber : req.body.Caller}, function (err, docs) {
@@ -201,6 +201,7 @@ app.post('/create/wallet', (req, res, done) => {
      twiml.say('Apologies, an application error occured. Please try again later')
 
   }
+    twiml.redirect('/wallet')
 });
 
 app.post('/fund/selected', (req, res) => {
@@ -247,14 +248,19 @@ app.post('/fund/wallet', (req, res) => {
       action: '/fund/confirmed'
     });
   gather.say('please enter the amount, followed by the # key')
+//<<<<<<< HEAD
   console.log(req.body.Digits);
 
 //>>>>>>> a5a4f8d332bfe6dc75835da834b48213a55f6d62
+//=======
+
+//>>>>>>> ecd13115a67e4273e233dfd7398aca14a8d1e976
   // Render the response as XML in reply to the webhook request
 
   res.type('text/xml');
   res.send(twiml.toString());
 });
+//<<<<<<< HEAD
 
 //<<<<<<< HEAD
 app.post('/english/transactions', (req, res) => {
@@ -272,32 +278,155 @@ gather.say('Your account balance is, five thousand, two hundred and fifty naira'
 console.log(response.toString());
 });
 //=======
+//=======
+let amount;
+//>>>>>>> ecd13115a67e4273e233dfd7398aca14a8d1e976
 //confirm the amount entered
 app.post('/fund/confirmed', (req, res) => {
+  console.log(req.body.Digits)
+
   const twiml = new voiceResponse();
-  const gather = twiml.gather({
-    numDigits: 1
-  })
-  twiml.say('you entered'+ req.body.Digits + 'press * that is star to proceed, or 8 to return')
-  if(req.body.Digits) {
-    switch (req.body.Digits) {
-      case '*':
 
-        twiml.redirect('/update/wallet');
-        break
 
-        case '8':
-        twiml.redirect('/wallet');
-    }
-  }
+  amount = Number(req.body.Digits);
+
+  twiml.say('you entered '+ Number(req.body.Digits)+ ' Naira.');
+  twiml.redirect('/fund/confirmed/processing');
+
   res.type('text/xml');
   res.send(twiml.toString());
 
 });
 
-//update wallet with the new amount entered
-//app.post()
+// confirmation to proceed wallet funding
+app.post('/fund/confirmed/processing', (req, res) => {
+  const twiml = new voiceResponse();
+  const gather = twiml.gather({
+    numDigits: 1,
+    action: '/fundprocessing_switch'
+  })
+  gather.say('press  9  to proceed, or 8 to return')
 
+    res.type('text/xml');
+    res.send(twiml.toString());
+
+
+});
+//switch
+app.post('/fundprocessing_switch', (req, res) => {
+  const twiml = new voiceResponse();
+
+  if(req.body.Digits) {
+    switch (req.body.Digits) {
+      case '9':
+        twiml.redirect('/getpin');
+        break;
+
+        case '8':
+        twiml.redirect('/wallet');
+        break;
+
+        default:
+        twiml.say('sorry i do not understand that choice');
+        twiml.redirect('/fund/wallet')
+        break;
+
+    }
+  }
+  res.type('text/xml');
+  res.send(twiml.toString());
+})
+
+//update wallet with the new amount entered
+app.post('/getpin', (req, res) => {
+  const twiml = new voiceResponse();
+  const gather = twiml.gather({
+    numDigits : 6,
+    action: '/validate/pin'
+    //action : '/english/authentication',
+  })
+
+      // Supply token to access account
+      gather.say('Kindly type your six digit pin');
+      // Render the response as XML in reply to the webhook request
+     // res.type('text/xml');
+     // res.send(twiml.toString());
+
+  res.type('text/xml');
+  res.send(twiml.toString());
+
+})
+
+
+
+app.post('/validate/pin', (req, res) => {
+  // Use the twilio node js to build an xml response
+  const twiml = new voiceResponse();
+
+  User.findOne({ phoneNumber : req.body.Caller }, (err, existingCustomer) => {
+    if (err) { console.log(err); }
+    if (req.body.Digits == existingCustomer.profilePin) {
+      twiml.say('You are authenticated');
+      twiml.redirect('/check_balance');
+    } else {
+      twiml.say('Invalid pin');
+      twiml.redirect('/getpin');
+    }
+    // Render the response as XML in reply to the webhook request
+    res.type('text/xml');
+    res.send(twiml.toString());
+  });
+});
+
+
+//<<<<<<< HEAD
+//=======
+let prevBalance;
+app.post('/check_balance', (req, res) => {
+  const twiml = new voiceResponse();
+
+  User.findOne({ phoneNumber : req.body.Caller}, (err , existingCustomer) =>{
+    if (err) {console.log(err);}
+    console.log(existingCustomer.balance);
+    if (existingCustomer){
+      prevBalance = Number(existingCustomer.balance);
+      console.log(prevBalance);
+      console.log(Number(existingCustomer.balance));
+      newBalance = prevBalance - amount;
+      console.log(newBalance);
+      twiml.redirect('/update_wallet')
+    }else{
+      twiml.say('Insufficient funds');
+    }
+    res.type('text/xml');
+    res.send(twiml.toString());
+  });
+});
+
+app.post('/update_wallet', (req, res, done) => {
+  const twiml = new voiceResponse();
+  console.log(amount);
+
+
+try {
+    User.updateOne({phoneNumber: req.body.Caller }, {$set: { wallet: amount, balance: newBalance}}).then(null, done);
+    console.log('wallet funded with ' + amount);
+    console.log(amount)
+    twiml.say('Funding succesful')
+    res.type('text/xml');
+    res.send(twiml.toString());
+  }
+   catch(e) {
+     console.log(e);
+     twiml.say('Apologies, an application error occured. Please try again later')
+
+  }
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
+
+//>>>>>>> ecd13115a67e4273e233dfd7398aca14a8d1e976
 
 
 
