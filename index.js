@@ -23,6 +23,8 @@ const bodyParser = require('body-parser');
 
 const http = require('http');
 const voiceResponse = require('twilio').twiml.VoiceResponse;
+const twiml = new voiceResponse();
+
 /*
 app.post('/', (req,res) => {
   // create TwiML response
@@ -212,8 +214,7 @@ app.post('/fund/selected', (req, res) => {
         twiml.redirect('/fund/wallet');
         break;
       case '6':
-        twiml.say('press 1 to transfer an Eco bank account, or 2, to transfer funds to your wallet');
-        twiml.redirect('/funds/transfer');
+        twiml.redirect('/fundsTransfer');
         break;
       case '7':
         twiml.say('Press 3 to get Ecobank account balance, or 4 to get Wallet balance');
@@ -352,18 +353,19 @@ app.post('/validate/pin', (req, res) => {
 
 var prevBalance;
 var newBalance;
-
+let prevWallet;
 app.post('/check_balance', (req, res) => {
   const twiml = new voiceResponse();
 
   User.findOne({ phoneNumber : req.body.Caller}, (err , existingCustomer) =>{
     if (err) {console.log(err);}
     
-    
-    if (existingCustomer){
-      prevBalance = number(existingCustomer.balance);
+    prevBalance = Number(existingCustomer.balance);
+    if (prevBalance > amount){
+      prevWallet = existingCustomer.wallet;
+      prevWallet += amount;
       console.log(prevBalance);
-      console.log(Number(existingCustomer.balance));
+      console.log(existingCustomer.balance);
       newBalance = prevBalance - amount;
       console.log(newBalance);
       twiml.redirect('/update_wallet')  
@@ -381,9 +383,9 @@ app.post('/update_wallet', (req, res, done) => {
 
 
 try {
-    User.updateOne({phoneNumber: req.body.Caller }, {$set: { wallet: amount, balance: newBalance}}).then(null, done);
+    User.updateOne({phoneNumber: req.body.Caller }, {$set: { wallet: prevWallet, balance: newBalance}}).then(null, done);
     console.log('wallet funded with ' + amount);
-    console.log(amount)
+    console.log(prevWallet)
     twiml.say('Funding succesful')
     res.type('text/xml');
     res.send(twiml.toString());
@@ -397,6 +399,187 @@ try {
   res.send(twiml.toString());
 });
   
+ //funds transfer 
+ app.post('/fundsTransfer', (req, res) => {
+   const twiml = new voiceResponse();
+  const gather = twiml.gather({
+    input: 'speech dtmf',
+    numDigits: 1,
+    action: '/transfer_confirmed'
+  });
+ 
+  gather.say('Press 1 to transfer funds to Eco bank account, 2 to fund an Eco bank wallet');
+  res.type('text/xml');
+  res.send(twiml.toString());
+   
+
+ }); 
+
+ //get what the user inputed to carry funds transfer
+ app.post('/transfer_confirmed', (req, res) => {
+  const twiml = new voiceResponse();
+  if(req.body.Digits) {
+    switch (req.body.Digits) {
+      case '1':
+        twiml.redirect('/transfer_pin');
+        break;
+
+        case '2':
+        twiml.redirect('/transfer_wallet');
+        break;
+        
+        default:
+        twiml.say('sorry i do not understand that choice');
+        twiml.redirect('/fund/wallet')
+        break;
+
+    }
+  }
+  res.type('text/xml');
+  res.send(twiml.toString());
+ });
+ // get pin to carry out a transfer 
+ app.post('/transfer_pin', (req, res) => {
+  const twiml = new voiceResponse();
+  const gather = twiml.gather({
+    numDigits : 6,
+    action: '/validate/transferpin'
+  
+  });
+
+      // Supply token to access account
+      gather.say('Kindly type your six digit pin');
+     
+      // Render the response as XML in reply to the webhook request
+      res.type('text/xml');
+      res.send(twiml.toString());
+
+ });
+
+ //authenticate the transfer pin
+ app.post('/validate/transferpin', (req, res) => {
+  const twiml = new voiceResponse();
+  
+  User.findOne({ phoneNumber : req.body.Caller }, (err, existingCustomer) => {
+    if (err) { console.log(err); }
+    if (req.body.Digits == existingCustomer.profilePin) {
+      twiml.say('You are authenticated');
+      twiml.redirect('/transfer');
+    } else {
+      twiml.say('Invalid pin');
+      twiml.redirect('/transfer_pin');
+    }
+    // Render the response as XML in reply to the webhook request
+    res.type('text/xml');
+    res.send(twiml.toString());
+  });
+  
+});
+
+app.post('/transfer', (req, res) => {
+  const twiml = new voiceResponse();
+  const gather = twiml.gather({
+    numDigits: 3,
+    action: '/accountquery'
+  });
+  gather.say("please enter the receipient's account number")
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+let acctName;
+let acctNum;
+let receipientAcctBal;
+app.post('/accountquery', (req, res) => {
+  const twiml = new voiceResponse();
+  User.findOne({ accountNumber : req.body.Digits}, (err, docs) => {
+    if (err){
+      console.log(err);
+    }
+    if (req.body.Digits == docs.accountNumber){
+      console.log('found a match: ' + docs.accountNumber);
+      console.log(docs.accountName);
+      acctNum = docs.accountNumber;
+      acctName = docs.accountName;
+      receipientAcctBal = docs.balance;
+      twiml.redirect('/transferAmount')
+    }
+    res.type('text/xml');
+    res.send(twiml.toString());
+  });
+  
+  // transfer amount
+  app.post('/transferAmount', (req, res) => {
+    const twiml = new voiceResponse();
+    const gather = twiml.gather({
+      
+      action: '/amount/confirmed'
+    });
+    gather.say("please enter the amount to be transferred")
+    res.type('text/xml');
+    res.send(twiml.toString());
+  });
+  
+
+});
+
+//confirm the amount entered
+app.post('/amount/confirmed', (req, res) => {
+  console.log(req.body.Digits)
+ 
+  const twiml = new voiceResponse();
+ 
+  
+  amount = Number(req.body.Digits);
+  
+  twiml.say('you are making a transfer of '+ Number(req.body.Digits)+ ' Naira, to ' + acctName);
+  twiml.redirect('/balanceCheck');
+ 
+  res.type('text/xml');
+  res.send(twiml.toString());
+
+});
+
+//
+app.post('/balanceCheck', (req, res) => {
+  const twiml = new voiceResponse();
+
+  User.findOne({ phoneNumber : req.body.Caller}, (err , existingCustomer) =>{
+    if (err) {console.log(err);}
+    
+    prevBalance = Number(existingCustomer.balance);
+    if (prevBalance > amount){
+      console.log(prevBalance);
+      console.log(existingCustomer.balance);
+      prevBalance -= amount;
+      console.log(prevBalance);
+      twiml.say('Good to go');
+      twiml.redirect('/updatetransfer');  
+    }else{
+      twiml.say('Insufficient funds');
+    }
+    res.type('text/xml');
+    res.send(twiml.toString());
+  });
+});
+
+app.post('/updatetransfer', (req, res, done) => {
+  try {
+    // sender's account
+  User.updateOne({phoneNumber: req.body.Caller }, {$set: {  balance: prevBalance}}).then(null, done);
+
+  // receiver's account
+ receipientAcctBal += amount;
+  User.updateOne({accountNumber: acctNum }, {$set: { balance: receipientAcctBal}}).then(null, done);
+    twiml.say('Funding succesful');
+    console.log(receipientAcctBal);
+  } catch(e) {
+    twiml.say('Transaction failed');
+  }
+  
+   
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
   
 
 
