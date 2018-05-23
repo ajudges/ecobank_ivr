@@ -99,12 +99,12 @@ app.post('/english/existingCustomer', (req, res) => {
 
   User.findOne({ phoneNumber : req.body.Caller }, (err, existingCustomer) => {
     if (err) { console.log(err); }
-    console.log(existingCustomer);
+    console.log(Number(existingCustomer.wallet));
 
     // if a customer exists, do
     if (existingCustomer) {
       // Supply token to access account
-      gather.say('Kindly type your six digit pin');
+      gather.say('Your account balance is ' + Number(existingCustomer.wallet));
       // Render the response as XML in reply to the webhook request
       res.type('text/xml');
       res.send(twiml.toString());
@@ -133,16 +133,16 @@ app.post('/english/authentication', (req, res) => {
 
 app.post('/english/transactions', (req, res) => {
   const twiml = new voiceResponse();
-<<<<<<< HEAD
-  twiml.say('Press 3 for account balance, or 4 to make funds transfer')
-=======
+//<<<<<<< HEAD
+  //twiml.say('Press 3 for account balance, or 4 to make funds transfer')
+//=======
   twiml.say('good to go');
 
   twiml.redirect('/wallet');
   // Render the response as XML in reply to the webhook request
   res.type('text/xml');
   res.send(twiml.toString());
-  
+
 
 });
 
@@ -152,34 +152,34 @@ app.post('/wallet', (req,res) => {
 // Use the twilio node js to build an xml response
   const twiml = new voiceResponse();
     User.findOne({phoneNumber : req.body.Caller}, function (err, docs) {
-      
+
       console.log(docs);
          if (docs.wallet == null){
           const gather = twiml.gather({
             numDigits: 1,
             action: '/create/wallet',
           });
-          
-          
+
+
           gather.say('You currently do not have a wallet for offline transactions, Please press 4 to create one');
             console.log('not found')
            //twiml.redirect('/create/wallet')
-        }else{  
+        }else{
           const gather = twiml.gather({
             numDigits: 1,
             action: '/fund/selected',
-          });              
+          });
           console.log('walllet exist: ', docs.wallet);
               gather.say('Press 5 to fund your wallet, 6 for bank transfers, 7 for wallet balance');
-              
+
               twiml.redirect('/fund/selected');
 
-              
+
               }
 
 res.type('text/xml');
 res.send(twiml.toString());
-  
+
 }) ;
 });
 // this is to create a wallet for a user that doesnt have one
@@ -187,8 +187,8 @@ app.post('/create/wallet', (req, res, done) => {
 
   // Use the twilio node js to build an xml response
   const twiml = new voiceResponse();
-  //store the wallet in a variable, set it to an empty string till the user funds it 
-  
+  //store the wallet in a variable, set it to an empty string till the user funds it
+
   try {
     User.updateOne({phoneNumber: req.body.Caller }, {$set: {wallet: "0"}}).then(null, done);
     console.log('wallet created');
@@ -210,7 +210,7 @@ app.post('/fund/selected', (req, res) => {
   if(req.body.Digits) {
     switch (req.body.Digits) {
       case '5':
-        
+
         twiml.redirect('/fund/wallet');
         break;
       case '6':
@@ -236,7 +236,7 @@ app.post('/fund/selected', (req, res) => {
 });
 
 
-//fund wallet 
+//fund wallet
 app.post('/fund/wallet', (req, res) => {
    // Use the twilio node js to build an xml response
    const twiml = new voiceResponse();
@@ -248,15 +248,15 @@ app.post('/fund/wallet', (req, res) => {
     });
   gather.say('please enter the amount, followed by the # key')
   console.log(req.body.Digits);
- 
->>>>>>> a5a4f8d332bfe6dc75835da834b48213a55f6d62
+
+//>>>>>>> a5a4f8d332bfe6dc75835da834b48213a55f6d62
   // Render the response as XML in reply to the webhook request
 
   res.type('text/xml');
   res.send(twiml.toString());
 });
 
-<<<<<<< HEAD
+//<<<<<<< HEAD
 app.post('/english/transactions', (req, res) => {
   const twiml = new voiceResponse();
 
@@ -270,7 +270,8 @@ const gather = response.gather({
 });
 gather.say('Your account balance is, five thousand, two hundred and fifty naira')
 console.log(response.toString());
-=======
+});
+//=======
 //confirm the amount entered
 app.post('/fund/confirmed', (req, res) => {
   const twiml = new voiceResponse();
@@ -297,10 +298,10 @@ app.post('/fund/confirmed', (req, res) => {
 //update wallet with the new amount entered
 //app.post()
 
-  
-  
 
->>>>>>> a5a4f8d332bfe6dc75835da834b48213a55f6d62
+
+
+//>>>>>>> a5a4f8d332bfe6dc75835da834b48213a55f6d62
 
 app.listen(1337, '127.0.0.1');
 
